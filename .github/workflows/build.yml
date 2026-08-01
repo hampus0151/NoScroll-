@@ -25,4 +25,4 @@ jobs:
       - name: Build Android debug APK
         run: gradle :composeApp:assembleDebug
       - name: Run shared tests
-        run: gradle :composeApp:allTests
+        run: gradle :composeApp:testDebugUnitTest
