@@ -41,6 +41,13 @@ class InMemoryNoScrollRepository : NoScrollRepository {
         )
     }
 
+    override suspend fun setFacebookDetectionState(facebookOpen: Boolean, reelsDetected: Boolean) {
+        mutableState.value = mutableState.value.copy(
+            facebookOpen = facebookOpen,
+            facebookReelsDetected = reelsDetected
+        )
+    }
+
     override suspend fun setRuleEnabled(platform: FocusPlatform, enabled: Boolean) {
         mutableState.value = mutableState.value.copy(
             appRules = mutableState.value.appRules.map { rule ->

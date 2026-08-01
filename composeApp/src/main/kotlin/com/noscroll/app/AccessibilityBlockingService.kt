@@ -73,7 +73,9 @@ class AccessibilityBlockingService : AccessibilityService() {
                     youtubeOpen = true,
                     shortsDetected = shortsDetected,
                     instagramOpen = false,
-                    reelsDetected = false
+                    reelsDetected = false,
+                    facebookOpen = false,
+                    facebookReelsDetected = false
                 )
             }
             INSTAGRAM_PACKAGE -> {
@@ -85,13 +87,36 @@ class AccessibilityBlockingService : AccessibilityService() {
                     youtubeOpen = false,
                     shortsDetected = false,
                     instagramOpen = true,
-                    reelsDetected = reelsDetected
+                    reelsDetected = reelsDetected,
+                    facebookOpen = false,
+                    facebookReelsDetected = false
+                )
+            }
+            FACEBOOK_PACKAGE -> {
+                removeEntryPointBlockers()
+                lastYoutubeScanUptime = 0L
+                val enabled = isPlatformEnabled(FocusPlatform.Facebook)
+                val reelsDetected = enabled && event.isFacebookReelsEvent()
+                publishDetection(
+                    youtubeOpen = false,
+                    shortsDetected = false,
+                    instagramOpen = false,
+                    reelsDetected = false,
+                    facebookOpen = true,
+                    facebookReelsDetected = reelsDetected
                 )
             }
             else -> {
                 removeEntryPointBlockers()
                 lastYoutubeScanUptime = 0L
-                publishDetection(youtubeOpen = false, shortsDetected = false, instagramOpen = false, reelsDetected = false)
+                publishDetection(
+                    youtubeOpen = false,
+                    shortsDetected = false,
+                    instagramOpen = false,
+                    reelsDetected = false,
+                    facebookOpen = false,
+                    facebookReelsDetected = false
+                )
             }
         }
     }
@@ -139,12 +164,15 @@ class AccessibilityBlockingService : AccessibilityService() {
         youtubeOpen: Boolean,
         shortsDetected: Boolean,
         instagramOpen: Boolean,
-        reelsDetected: Boolean
+        reelsDetected: Boolean,
+        facebookOpen: Boolean,
+        facebookReelsDetected: Boolean
     ) {
-        scheduleAutomaticExitIfNeeded(shortsDetected || reelsDetected)
+        scheduleAutomaticExitIfNeeded(shortsDetected || reelsDetected || facebookReelsDetected)
         serviceScope.launch {
             repository.setYouTubeDetectionState(youtubeOpen, shortsDetected)
             repository.setInstagramDetectionState(instagramOpen, reelsDetected)
+            repository.setFacebookDetectionState(facebookOpen, facebookReelsDetected)
         }
     }
 
@@ -200,7 +228,10 @@ class AccessibilityBlockingService : AccessibilityService() {
         automaticExitScheduled = true
         automaticExitJob = serviceScope.launch {
             delay(AUTOMATIC_EXIT_DELAY_MS)
-            if (!repository.state.value.youtubeShortsDetected && !repository.state.value.instagramReelsDetected) {
+            if (!repository.state.value.youtubeShortsDetected &&
+                !repository.state.value.instagramReelsDetected &&
+                !repository.state.value.facebookReelsDetected
+            ) {
                 automaticExitScheduled = false
                 return@launch
             }
@@ -244,6 +275,18 @@ class AccessibilityBlockingService : AccessibilityService() {
             .any { it.contains(REELS_LABEL, ignoreCase = true) }
     }
 
+    private fun AccessibilityEvent.isFacebookReelsEvent(): Boolean {
+        val sourceId = source?.viewIdResourceName.orEmpty()
+        if (sourceId.isNotEmpty()) {
+            return FACEBOOK_REELS_VIEW_ID_MARKERS.any { marker -> sourceId.contains(marker, ignoreCase = true) }
+        }
+
+        val eventText = text.joinToString(" ")
+        val contentDescriptionText = contentDescription?.toString().orEmpty()
+        return listOf(eventText, contentDescriptionText)
+            .any { it.contains(REELS_LABEL, ignoreCase = true) }
+    }
+
     companion object {
         @Volatile
         private var activeService: AccessibilityBlockingService? = null
@@ -252,6 +295,7 @@ class AccessibilityBlockingService : AccessibilityService() {
 
         const val YOUTUBE_PACKAGE = "com.google.android.youtube"
         const val INSTAGRAM_PACKAGE = "com.instagram.android"
+        const val FACEBOOK_PACKAGE = "com.facebook.katana"
         const val SHORTS_LABEL = "shorts"
         const val REELS_LABEL = "reels"
         const val TAG = "NoScrollAccessibility"
@@ -268,6 +312,12 @@ class AccessibilityBlockingService : AccessibilityService() {
             "clips_viewer",
             "reels_tab",
             "reels_viewer"
+        )
+        val FACEBOOK_REELS_VIEW_ID_MARKERS = setOf(
+            "reels_tab",
+            "reels_viewer",
+            "reel_viewer",
+            "short_video"
         )
     }
 }

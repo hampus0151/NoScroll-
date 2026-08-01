@@ -6,7 +6,8 @@ import kotlinx.coroutines.flow.StateFlow
 enum class FocusPlatform(val label: String, val accent: Long) {
     YouTube("YouTube Shorts", 0xFFFF6B6B),
     Instagram("Instagram Reels", 0xFFE879F9),
-    Snapchat("Snapchat Spotlight", 0xFFFDE047)
+    Snapchat("Snapchat Spotlight", 0xFFFDE047),
+    Facebook("Facebook Reels", 0xFF60A5FA)
 }
 
 data class AppRule(
@@ -48,11 +49,14 @@ data class NoScrollState(
     val youtubeShortsDetected: Boolean = false,
     val instagramOpen: Boolean = false,
     val instagramReelsDetected: Boolean = false,
+    val facebookOpen: Boolean = false,
+    val facebookReelsDetected: Boolean = false,
     val appRules: List<AppRule> = FocusPlatform.entries.map {
         AppRule(it, description = when (it) {
             FocusPlatform.YouTube -> "Korta videor i Shorts-flödet"
             FocusPlatform.Instagram -> "Korta videor i Reels-flödet"
             FocusPlatform.Snapchat -> "Spotlight-flödet"
+            FocusPlatform.Facebook -> "Reels-flödet"
         })
     },
     val statistics: Statistics = Statistics(),
@@ -85,6 +89,7 @@ interface NoScrollRepository {
     suspend fun setAccessibilityServiceEnabled(enabled: Boolean)
     suspend fun setYouTubeDetectionState(youtubeOpen: Boolean, shortsDetected: Boolean)
     suspend fun setInstagramDetectionState(instagramOpen: Boolean, reelsDetected: Boolean)
+    suspend fun setFacebookDetectionState(facebookOpen: Boolean, reelsDetected: Boolean)
     suspend fun setRuleEnabled(platform: FocusPlatform, enabled: Boolean)
     suspend fun updateSettings(update: (UserSettings) -> UserSettings)
     suspend fun recordShortsBlocked(automatic: Boolean, minutesSaved: Int = 1)
