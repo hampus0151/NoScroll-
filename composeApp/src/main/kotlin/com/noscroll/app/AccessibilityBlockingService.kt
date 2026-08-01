@@ -12,13 +12,18 @@ import android.view.View
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityNodeInfo
 import android.os.SystemClock
+import android.os.Handler
+import android.os.Looper
 import com.noscroll.app.data.AndroidDataStoreRepository
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.cancel
 
 @AndroidEntryPoint
 class AccessibilityBlockingService : AccessibilityService() {
@@ -30,8 +35,10 @@ class AccessibilityBlockingService : AccessibilityService() {
     private val entryPointBlockers = mutableMapOf<String, View>()
     private val entryPointBounds = mutableMapOf<String, Rect>()
     private var loggedMissingTarget = false
-    private var loggedFallbackTarget = false
     private var lastYoutubeScanUptime = 0L
+    private var automaticExitJob: Job? = null
+    private var automaticExitScheduled = false
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -43,6 +50,8 @@ class AccessibilityBlockingService : AccessibilityService() {
     }
 
     override fun onDestroy() {
+        automaticExitJob?.cancel()
+        serviceScope.cancel()
         removeEntryPointBlockers()
         activeService = null
         super.onDestroy()
@@ -63,6 +72,7 @@ class AccessibilityBlockingService : AccessibilityService() {
         }
         val youtubeOpen = packageName == YOUTUBE_PACKAGE
         val shortsDetected = youtubeOpen && event.isYouTubeShortsEvent()
+        scheduleAutomaticExitIfNeeded(shortsDetected)
         serviceScope.launch {
             repository.setYouTubeDetectionState(youtubeOpen, shortsDetected)
         }
@@ -71,63 +81,34 @@ class AccessibilityBlockingService : AccessibilityService() {
     override fun onInterrupt() = Unit
 
     private fun updateShortsEntryPointBlockers() {
+        if (!repository.state.value.settings.blockingEnabled) {
+            removeEntryPointBlockers()
+            return
+        }
         val root = rootInActiveWindow ?: run {
             removeEntryPointBlockers()
             return
         }
         val matches = linkedMapOf<String, Rect>()
-        var stableTargetFound = false
 
         STABLE_ENTRY_POINT_IDS.forEach { id ->
             val nodes = root.findAccessibilityNodeInfosByViewId("$YOUTUBE_PACKAGE:id/$id")
-            if (nodes.isNotEmpty()) stableTargetFound = true
             nodes.forEach { node -> matches[id] = nodeBounds(node) }
         }
 
         if (matches.isEmpty()) {
-            findFallbackEntryPoints(root, matches)
-        }
-
-        if (matches.isEmpty()) {
             if (!loggedMissingTarget) {
-                Log.d(TAG, "No Shorts entry point found in current YouTube hierarchy")
+                Log.d(TAG, "Shorts tab entry point not found in current YouTube hierarchy")
                 loggedMissingTarget = true
             }
-            loggedFallbackTarget = false
             removeEntryPointBlockers()
             return
         }
 
         loggedMissingTarget = false
-        if (!stableTargetFound && !loggedFallbackTarget) {
-            Log.d(TAG, "Stable Shorts entry point missing; using fallback hierarchy match")
-            loggedFallbackTarget = true
-        } else if (stableTargetFound) {
-            loggedFallbackTarget = false
-        }
         entryPointBlockers.keys.filter { it !in matches }.toList().forEach(::removeEntryPointBlocker)
         matches.forEach { (key, bounds) ->
             if (!bounds.isEmpty) addOrUpdateEntryPointBlocker(key, bounds)
-        }
-    }
-
-    private fun findFallbackEntryPoints(root: AccessibilityNodeInfo, matches: MutableMap<String, Rect>) {
-        val pending = ArrayDeque<Pair<AccessibilityNodeInfo, Int>>()
-        pending.add(root to 0)
-        var visited = 0
-        while (pending.isNotEmpty() && visited < MAX_FALLBACK_NODES) {
-            val (node, depth) = pending.removeFirst()
-            visited++
-            val text = node.text?.toString().orEmpty()
-            val description = node.contentDescription?.toString().orEmpty()
-            if (node.isVisibleToUser && (text + " " + description).contains(SHORTS_LABEL, ignoreCase = true)) {
-                matches["fallback_${matches.size}"] = nodeBounds(node)
-            }
-            if (depth < MAX_FALLBACK_DEPTH) {
-                for (index in 0 until node.childCount) {
-                    node.getChild(index)?.let { pending.add(it to depth + 1) }
-                }
-            }
         }
     }
 
@@ -171,6 +152,40 @@ class AccessibilityBlockingService : AccessibilityService() {
         entryPointBounds.remove(key)
     }
 
+    private fun scheduleAutomaticExitIfNeeded(shortsDetected: Boolean) {
+        if (!shortsDetected) {
+            automaticExitJob?.cancel()
+            automaticExitJob = null
+            automaticExitScheduled = false
+            return
+        }
+
+        val settings = repository.state.value.settings
+        if (!settings.blockingEnabled || !settings.automaticBlocking || automaticExitScheduled) return
+
+        automaticExitScheduled = true
+        automaticExitJob = serviceScope.launch {
+            delay(AUTOMATIC_EXIT_DELAY_MS)
+            if (!repository.state.value.youtubeShortsDetected) {
+                automaticExitScheduled = false
+                return@launch
+            }
+            mainHandler.post {
+                val exited = performGlobalAction(GLOBAL_ACTION_BACK)
+                if (exited) {
+                    serviceScope.launch { repository.recordShortsBlocked(automatic = true) }
+                }
+                automaticExitScheduled = false
+            }
+        }
+    }
+
+    fun performManualBack(): Boolean {
+        val exited = performGlobalAction(GLOBAL_ACTION_BACK)
+        if (exited) serviceScope.launch { repository.recordShortsBlocked(automatic = false) }
+        return exited
+    }
+
     private fun AccessibilityEvent.isYouTubeShortsEvent(): Boolean {
         val sourceId = source?.viewIdResourceName.orEmpty()
         if (sourceId.isNotEmpty()) {
@@ -187,14 +202,13 @@ class AccessibilityBlockingService : AccessibilityService() {
         @Volatile
         private var activeService: AccessibilityBlockingService? = null
 
-        fun performBack(): Boolean = activeService?.performGlobalAction(GLOBAL_ACTION_BACK) == true
+        fun performBack(): Boolean = activeService?.performManualBack() == true
 
         const val YOUTUBE_PACKAGE = "com.google.android.youtube"
         const val SHORTS_LABEL = "shorts"
         const val TAG = "NoScrollAccessibility"
-        const val MAX_FALLBACK_NODES = 160
-        const val MAX_FALLBACK_DEPTH = 12
         const val SCAN_INTERVAL_MS = 120L
+        const val AUTOMATIC_EXIT_DELAY_MS = 400L
         val STABLE_ENTRY_POINT_IDS = setOf("button_shorts_container")
         val SHORTS_VIEW_ID_MARKERS = setOf(
             "reel_player_",
