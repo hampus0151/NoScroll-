@@ -15,6 +15,7 @@ import android.os.SystemClock
 import android.os.Handler
 import android.os.Looper
 import com.noscroll.app.data.AndroidDataStoreRepository
+import com.noscroll.app.domain.FocusPlatform
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
@@ -59,22 +60,39 @@ class AccessibilityBlockingService : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         val packageName = event?.packageName?.toString()
-        if (packageName != YOUTUBE_PACKAGE) {
-            removeEntryPointBlockers()
-            lastYoutubeScanUptime = 0L
-            return
-        }
-
-        val now = SystemClock.uptimeMillis()
-        if (now - lastYoutubeScanUptime >= SCAN_INTERVAL_MS) {
-            lastYoutubeScanUptime = now
-            updateShortsEntryPointBlockers()
-        }
-        val youtubeOpen = packageName == YOUTUBE_PACKAGE
-        val shortsDetected = youtubeOpen && event.isYouTubeShortsEvent()
-        scheduleAutomaticExitIfNeeded(shortsDetected)
-        serviceScope.launch {
-            repository.setYouTubeDetectionState(youtubeOpen, shortsDetected)
+        when (packageName) {
+            YOUTUBE_PACKAGE -> {
+                val now = SystemClock.uptimeMillis()
+                if (now - lastYoutubeScanUptime >= SCAN_INTERVAL_MS) {
+                    lastYoutubeScanUptime = now
+                    updateShortsEntryPointBlockers()
+                }
+                val enabled = isPlatformEnabled(FocusPlatform.YouTube)
+                val shortsDetected = enabled && event.isYouTubeShortsEvent()
+                publishDetection(
+                    youtubeOpen = true,
+                    shortsDetected = shortsDetected,
+                    instagramOpen = false,
+                    reelsDetected = false
+                )
+            }
+            INSTAGRAM_PACKAGE -> {
+                removeEntryPointBlockers()
+                lastYoutubeScanUptime = 0L
+                val enabled = isPlatformEnabled(FocusPlatform.Instagram)
+                val reelsDetected = enabled && event.isInstagramReelsEvent()
+                publishDetection(
+                    youtubeOpen = false,
+                    shortsDetected = false,
+                    instagramOpen = true,
+                    reelsDetected = reelsDetected
+                )
+            }
+            else -> {
+                removeEntryPointBlockers()
+                lastYoutubeScanUptime = 0L
+                publishDetection(youtubeOpen = false, shortsDetected = false, instagramOpen = false, reelsDetected = false)
+            }
         }
     }
 
@@ -113,6 +131,22 @@ class AccessibilityBlockingService : AccessibilityService() {
     }
 
     private fun nodeBounds(node: AccessibilityNodeInfo): Rect = Rect().also(node::getBoundsInScreen)
+
+    private fun isPlatformEnabled(platform: FocusPlatform): Boolean =
+        repository.state.value.appRules.firstOrNull { it.platform == platform }?.enabled == true
+
+    private fun publishDetection(
+        youtubeOpen: Boolean,
+        shortsDetected: Boolean,
+        instagramOpen: Boolean,
+        reelsDetected: Boolean
+    ) {
+        scheduleAutomaticExitIfNeeded(shortsDetected || reelsDetected)
+        serviceScope.launch {
+            repository.setYouTubeDetectionState(youtubeOpen, shortsDetected)
+            repository.setInstagramDetectionState(instagramOpen, reelsDetected)
+        }
+    }
 
     private fun addOrUpdateEntryPointBlocker(key: String, bounds: Rect) {
         val blocker = entryPointBlockers.getOrPut(key) {
@@ -166,7 +200,7 @@ class AccessibilityBlockingService : AccessibilityService() {
         automaticExitScheduled = true
         automaticExitJob = serviceScope.launch {
             delay(AUTOMATIC_EXIT_DELAY_MS)
-            if (!repository.state.value.youtubeShortsDetected) {
+            if (!repository.state.value.youtubeShortsDetected && !repository.state.value.instagramReelsDetected) {
                 automaticExitScheduled = false
                 return@launch
             }
@@ -198,6 +232,18 @@ class AccessibilityBlockingService : AccessibilityService() {
             .any { it.contains(SHORTS_LABEL, ignoreCase = true) }
     }
 
+    private fun AccessibilityEvent.isInstagramReelsEvent(): Boolean {
+        val sourceId = source?.viewIdResourceName.orEmpty()
+        if (sourceId.isNotEmpty()) {
+            return INSTAGRAM_REELS_VIEW_ID_MARKERS.any { marker -> sourceId.contains(marker, ignoreCase = true) }
+        }
+
+        val eventText = text.joinToString(" ")
+        val contentDescriptionText = contentDescription?.toString().orEmpty()
+        return listOf(eventText, contentDescriptionText)
+            .any { it.contains(REELS_LABEL, ignoreCase = true) }
+    }
+
     companion object {
         @Volatile
         private var activeService: AccessibilityBlockingService? = null
@@ -205,7 +251,9 @@ class AccessibilityBlockingService : AccessibilityService() {
         fun performBack(): Boolean = activeService?.performManualBack() == true
 
         const val YOUTUBE_PACKAGE = "com.google.android.youtube"
+        const val INSTAGRAM_PACKAGE = "com.instagram.android"
         const val SHORTS_LABEL = "shorts"
+        const val REELS_LABEL = "reels"
         const val TAG = "NoScrollAccessibility"
         const val SCAN_INTERVAL_MS = 120L
         const val AUTOMATIC_EXIT_DELAY_MS = 400L
@@ -214,6 +262,12 @@ class AccessibilityBlockingService : AccessibilityService() {
             "reel_player_",
             "reel_scrim_shorts_while_",
             "button_shorts_container"
+        )
+        val INSTAGRAM_REELS_VIEW_ID_MARKERS = setOf(
+            "clips_tab",
+            "clips_viewer",
+            "reels_tab",
+            "reels_viewer"
         )
     }
 }

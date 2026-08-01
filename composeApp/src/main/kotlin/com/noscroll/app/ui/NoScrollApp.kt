@@ -90,8 +90,8 @@ fun NoScrollPlusApp(
     val state by viewModel.state.collectAsState()
     var overlayDismissed by remember { mutableStateOf(false) }
 
-    LaunchedEffect(state.youtubeShortsDetected) {
-        if (!state.youtubeShortsDetected) overlayDismissed = false
+    LaunchedEffect(state.youtubeShortsDetected, state.instagramReelsDetected) {
+        if (!state.youtubeShortsDetected && !state.instagramReelsDetected) overlayDismissed = false
     }
 
     MaterialTheme(
@@ -160,7 +160,7 @@ fun NoScrollPlusApp(
             }
 
             AnimatedVisibility(
-                visible = state.youtubeShortsDetected && state.settings.showOverlay && !overlayDismissed,
+                visible = (state.youtubeShortsDetected || state.instagramReelsDetected) && state.settings.showOverlay && !overlayDismissed,
                 enter = fadeIn(),
                 exit = fadeOut()
             ) {

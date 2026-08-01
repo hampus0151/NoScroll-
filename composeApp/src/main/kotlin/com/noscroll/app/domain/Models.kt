@@ -46,6 +46,8 @@ data class NoScrollState(
     val accessibilityServiceEnabled: Boolean = false,
     val youtubeOpen: Boolean = false,
     val youtubeShortsDetected: Boolean = false,
+    val instagramOpen: Boolean = false,
+    val instagramReelsDetected: Boolean = false,
     val appRules: List<AppRule> = FocusPlatform.entries.map {
         AppRule(it, description = when (it) {
             FocusPlatform.YouTube -> "Korta videor i Shorts-flödet"
@@ -82,6 +84,7 @@ interface NoScrollRepository {
     suspend fun setSecondaryScreen(screen: SecondaryScreen)
     suspend fun setAccessibilityServiceEnabled(enabled: Boolean)
     suspend fun setYouTubeDetectionState(youtubeOpen: Boolean, shortsDetected: Boolean)
+    suspend fun setInstagramDetectionState(instagramOpen: Boolean, reelsDetected: Boolean)
     suspend fun setRuleEnabled(platform: FocusPlatform, enabled: Boolean)
     suspend fun updateSettings(update: (UserSettings) -> UserSettings)
     suspend fun recordShortsBlocked(automatic: Boolean, minutesSaved: Int = 1)

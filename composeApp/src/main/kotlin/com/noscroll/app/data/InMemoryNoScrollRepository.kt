@@ -34,6 +34,13 @@ class InMemoryNoScrollRepository : NoScrollRepository {
         )
     }
 
+    override suspend fun setInstagramDetectionState(instagramOpen: Boolean, reelsDetected: Boolean) {
+        mutableState.value = mutableState.value.copy(
+            instagramOpen = instagramOpen,
+            instagramReelsDetected = reelsDetected
+        )
+    }
+
     override suspend fun setRuleEnabled(platform: FocusPlatform, enabled: Boolean) {
         mutableState.value = mutableState.value.copy(
             appRules = mutableState.value.appRules.map { rule ->
