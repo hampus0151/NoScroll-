@@ -77,7 +77,10 @@ private val LightText = Color(0xFF10201D)
 private val LightMuted = Color(0xFF5C6D68)
 
 @Composable
-fun NoScrollPlusApp(viewModel: NoScrollViewModel = remember { NoScrollViewModel() }) {
+fun NoScrollPlusApp(
+    viewModel: NoScrollViewModel = remember { NoScrollViewModel() },
+    onOpenAccessibilitySettings: () -> Unit = {}
+) {
     val state by viewModel.state.collectAsState()
 
     MaterialTheme(
@@ -126,7 +129,7 @@ fun NoScrollPlusApp(viewModel: NoScrollViewModel = remember { NoScrollViewModel(
                 }
             ) { padding ->
                 when (state.selectedTab) {
-                    AppTab.Home -> HomeScreen(state.appRules, viewModel, Modifier.padding(padding))
+                    AppTab.Home -> HomeScreen(state.appRules, state.accessibilityServiceEnabled, viewModel, onOpenAccessibilitySettings, Modifier.padding(padding))
                     AppTab.Statistics -> StatisticsScreen(state.statistics, Modifier.padding(padding))
                     AppTab.Settings -> SettingsScreen(state.settings, viewModel, Modifier.padding(padding))
                 }
@@ -138,7 +141,13 @@ fun NoScrollPlusApp(viewModel: NoScrollViewModel = remember { NoScrollViewModel(
 }
 
 @Composable
-private fun HomeScreen(rules: List<AppRule>, viewModel: NoScrollViewModel, modifier: Modifier) {
+private fun HomeScreen(
+    rules: List<AppRule>,
+    accessibilityServiceEnabled: Boolean,
+    viewModel: NoScrollViewModel,
+    onOpenAccessibilitySettings: () -> Unit,
+    modifier: Modifier
+) {
     var blockingEnabled by remember { mutableStateOf(true) }
 
     LazyColumn(
@@ -176,7 +185,7 @@ private fun HomeScreen(rules: List<AppRule>, viewModel: NoScrollViewModel, modif
             Spacer(Modifier.height(18.dp))
             BlockingControl(blockingEnabled) { blockingEnabled = it }
             Spacer(Modifier.height(2.dp))
-            PermissionStatusCard()
+            PermissionStatusCard(accessibilityServiceEnabled, onOpenAccessibilitySettings)
             StatisticsPreviewCard()
             Spacer(Modifier.height(6.dp))
             SectionHeading("Skyddade flöden", "Välj vilka kortvideo-flöden du vill pausa.")
@@ -249,7 +258,7 @@ private fun BlockingControl(enabled: Boolean, onEnabledChange: (Boolean) -> Unit
 }
 
 @Composable
-private fun PermissionStatusCard() {
+private fun PermissionStatusCard(enabled: Boolean, onOpenAccessibilitySettings: () -> Unit) {
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         shape = RoundedCornerShape(22.dp),
@@ -263,11 +272,19 @@ private fun PermissionStatusCard() {
                     Text("Tillgång och status", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
                     Text("Accessibility-behörighet", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                 }
-                StatusPill("Inte ansluten", false)
+                    StatusPill(if (enabled) "Ready" else "Inte ansluten", enabled)
             }
             Spacer(Modifier.height(16.dp))
-            StatusRow("Behörighet", "Krävs för att skydda appar", false)
-            StatusRow("Blockering", "Aktiv enligt dina inställningar", true)
+                StatusRow("Behörighet", if (enabled) "Tillgänglighetstjänsten är aktiv" else "Krävs för att skydda appar", enabled)
+                StatusRow("Blockering", if (enabled) "Redo när blockeringslogik läggs till" else "Inaktiv tills tjänsten aktiveras", enabled)
+                Spacer(Modifier.height(14.dp))
+                Button(
+                    onClick = onOpenAccessibilitySettings,
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(if (enabled) "Öppna Accessibility-inställningar" else "Aktivera Accessibility", color = MaterialTheme.colorScheme.onPrimary)
+                }
         }
     }
 }

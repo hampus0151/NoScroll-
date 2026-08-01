@@ -25,6 +25,10 @@ class NoScrollViewModel(
 
     fun closeScreen() = openScreen(SecondaryScreen.None)
 
+    fun setAccessibilityServiceEnabled(enabled: Boolean) = scope.launch {
+        repository.setAccessibilityServiceEnabled(enabled)
+    }
+
     fun setRuleEnabled(platform: FocusPlatform, enabled: Boolean) = scope.launch {
         repository.setRuleEnabled(platform, enabled)
     }

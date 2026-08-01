@@ -37,6 +37,7 @@ data class UserSettings(
 data class NoScrollState(
     val selectedTab: AppTab = AppTab.Home,
     val secondaryScreen: SecondaryScreen = SecondaryScreen.None,
+    val accessibilityServiceEnabled: Boolean = false,
     val appRules: List<AppRule> = FocusPlatform.entries.map {
         AppRule(it, description = when (it) {
             FocusPlatform.YouTube -> "Korta videor i Shorts-flödet"
@@ -73,6 +74,7 @@ interface NoScrollRepository {
     val state: StateFlow<NoScrollState>
     suspend fun setTab(tab: AppTab)
     suspend fun setSecondaryScreen(screen: SecondaryScreen)
+    suspend fun setAccessibilityServiceEnabled(enabled: Boolean)
     suspend fun setRuleEnabled(platform: FocusPlatform, enabled: Boolean)
     suspend fun updateSettings(update: (UserSettings) -> UserSettings)
     suspend fun recordBlocked(platform: FocusPlatform, minutesSaved: Int)

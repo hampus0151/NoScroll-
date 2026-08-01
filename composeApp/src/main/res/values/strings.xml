@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">NoScroll+</string>
+    <string name="accessibility_service_description">Används för att kontrollera om NoScroll+ är redo att skydda valda flöden.</string>
 </resources>
