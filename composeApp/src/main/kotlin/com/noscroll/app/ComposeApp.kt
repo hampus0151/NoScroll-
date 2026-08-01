@@ -8,9 +8,13 @@ import com.noscroll.app.presentation.NoScrollViewModel
 import androidx.compose.runtime.remember
 
 @Composable
-fun ComposeApp(repository: NoScrollRepository? = null, onOpenAccessibilitySettings: () -> Unit = {}) {
+fun ComposeApp(
+    repository: NoScrollRepository? = null,
+    onOpenAccessibilitySettings: () -> Unit = {},
+    onLeaveShorts: () -> Unit = {}
+) {
     val viewModel = remember(repository) {
         NoScrollViewModel(repository ?: InMemoryNoScrollRepository())
     }
-    NoScrollPlusApp(viewModel, onOpenAccessibilitySettings)
+    NoScrollPlusApp(viewModel, onOpenAccessibilitySettings, onLeaveShorts)
 }

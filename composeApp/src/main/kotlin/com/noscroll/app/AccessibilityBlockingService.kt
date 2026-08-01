@@ -19,9 +19,15 @@ class AccessibilityBlockingService : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
+        activeService = this
         serviceScope.launch {
             repository.setAccessibilityServiceEnabled(true)
         }
+    }
+
+    override fun onDestroy() {
+        activeService = null
+        super.onDestroy()
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -47,7 +53,12 @@ class AccessibilityBlockingService : AccessibilityService() {
             .any { it.contains(SHORTS_LABEL, ignoreCase = true) }
     }
 
-    private companion object {
+    companion object {
+        @Volatile
+        private var activeService: AccessibilityBlockingService? = null
+
+        fun performBack(): Boolean = activeService?.performGlobalAction(GLOBAL_ACTION_BACK) == true
+
         const val YOUTUBE_PACKAGE = "com.google.android.youtube"
         const val SHORTS_LABEL = "shorts"
         val SHORTS_VIEW_ID_MARKERS = setOf(

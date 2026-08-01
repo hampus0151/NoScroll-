@@ -20,9 +20,13 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            ComposeApp(repository) {
-                startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-            }
+            ComposeApp(
+                repository = repository,
+                onOpenAccessibilitySettings = {
+                    startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                },
+                onLeaveShorts = { AccessibilityBlockingService.performBack() }
+            )
         }
     }
 

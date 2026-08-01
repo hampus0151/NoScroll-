@@ -16,6 +16,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.ArrowBack
@@ -45,6 +48,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -79,9 +83,15 @@ private val LightMuted = Color(0xFF5C6D68)
 @Composable
 fun NoScrollPlusApp(
     viewModel: NoScrollViewModel = remember { NoScrollViewModel() },
-    onOpenAccessibilitySettings: () -> Unit = {}
+    onOpenAccessibilitySettings: () -> Unit = {},
+    onLeaveShorts: () -> Unit = {}
 ) {
     val state by viewModel.state.collectAsState()
+    var overlayDismissed by remember { mutableStateOf(false) }
+
+    LaunchedEffect(state.youtubeShortsDetected) {
+        if (!state.youtubeShortsDetected) overlayDismissed = false
+    }
 
     MaterialTheme(
         colorScheme = if (state.settings.darkMode) {
@@ -110,40 +120,96 @@ fun NoScrollPlusApp(
             )
         }
     ) {
-        if (!state.settings.onboardingCompleted) {
-            OnboardingScreen(viewModel)
-        } else if (state.secondaryScreen == SecondaryScreen.None) {
-            Scaffold(
-                containerColor = MaterialTheme.colorScheme.background,
-                bottomBar = {
-                    NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
-                        AppTab.entries.forEach { tab ->
-                            NavigationBarItem(
-                                selected = state.selectedTab == tab,
-                                onClick = { viewModel.selectTab(tab) },
-                                icon = { Icon(tab.icon(), contentDescription = tab.label) },
-                                label = { Text(tab.label) }
-                            )
+        Box(Modifier.fillMaxSize()) {
+            if (!state.settings.onboardingCompleted) {
+                OnboardingScreen(viewModel)
+            } else if (state.secondaryScreen == SecondaryScreen.None) {
+                Scaffold(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    bottomBar = {
+                        NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
+                            AppTab.entries.forEach { tab ->
+                                NavigationBarItem(
+                                    selected = state.selectedTab == tab,
+                                    onClick = { viewModel.selectTab(tab) },
+                                    icon = { Icon(tab.icon(), contentDescription = tab.label) },
+                                    label = { Text(tab.label) }
+                                )
+                            }
                         }
                     }
+                ) { padding ->
+                    when (state.selectedTab) {
+                        AppTab.Home -> HomeScreen(
+                            state.appRules,
+                            state.accessibilityServiceEnabled,
+                            state.youtubeOpen,
+                            state.youtubeShortsDetected,
+                            viewModel,
+                            onOpenAccessibilitySettings,
+                            Modifier.padding(padding)
+                        )
+                        AppTab.Statistics -> StatisticsScreen(state.statistics, Modifier.padding(padding))
+                        AppTab.Settings -> SettingsScreen(state.settings, viewModel, Modifier.padding(padding))
+                    }
                 }
-            ) { padding ->
-                when (state.selectedTab) {
-                    AppTab.Home -> HomeScreen(
-                        state.appRules,
-                        state.accessibilityServiceEnabled,
-                        state.youtubeOpen,
-                        state.youtubeShortsDetected,
-                        viewModel,
-                        onOpenAccessibilitySettings,
-                        Modifier.padding(padding)
-                    )
-                    AppTab.Statistics -> StatisticsScreen(state.statistics, Modifier.padding(padding))
-                    AppTab.Settings -> SettingsScreen(state.settings, viewModel, Modifier.padding(padding))
+            } else {
+                SecondaryScreenView(state.secondaryScreen, state.settings, viewModel)
+            }
+
+            AnimatedVisibility(
+                visible = state.youtubeShortsDetected && !overlayDismissed,
+                enter = fadeIn(),
+                exit = fadeOut()
+            ) {
+                ShortsBlockingOverlay(
+                    onLeaveShorts = onLeaveShorts,
+                    onClose = { overlayDismissed = true }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ShortsBlockingOverlay(onLeaveShorts: () -> Unit, onClose: () -> Unit) {
+    Box(
+        modifier = Modifier.fillMaxSize().background(Color.Black),
+        contentAlignment = Alignment.Center
+    ) {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF171A1F)),
+            shape = RoundedCornerShape(28.dp),
+            modifier = Modifier.fillMaxWidth().padding(24.dp)
+        ) {
+            Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(
+                    Icons.Outlined.Lock,
+                    contentDescription = null,
+                    tint = Accent,
+                    modifier = Modifier.size(42.dp)
+                )
+                Spacer(Modifier.height(20.dp))
+                Text(
+                    "Shorts blocked by NoScroll+",
+                    color = Color.White,
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(Modifier.height(8.dp))
+                Text("Stay focused.", color = Color(0xFFB7C0C8), fontSize = 16.sp)
+                Spacer(Modifier.height(24.dp))
+                Button(
+                    onClick = onLeaveShorts,
+                    colors = ButtonDefaults.buttonColors(containerColor = Accent),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Leave Shorts", color = Color(0xFF002019), fontWeight = FontWeight.SemiBold)
+                }
+                TextButton(onClick = onClose) {
+                    Text("Close overlay", color = Color(0xFFB7C0C8))
                 }
             }
-        } else {
-            SecondaryScreenView(state.secondaryScreen, state.settings, viewModel)
         }
     }
 }
