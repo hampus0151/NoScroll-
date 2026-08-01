@@ -48,7 +48,7 @@ class AndroidDataStoreRepository(context: Context) : NoScrollRepository {
                     ),
                     appRules = mutableState.value.appRules.map { rule ->
                         rule.copy(enabled = preferences[Keys.ruleEnabled(rule.platform)] ?: true)
-                    )
+                    }
                 )
             }
         }

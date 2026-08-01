@@ -1,46 +1,13 @@
 plugins {
-    alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.android.application)
-    alias(libs.plugins.compose.multiplatform)
+    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.compose.compiler)
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
 }
 
 kotlin {
-    androidTarget()
-    iosX64()
-    iosArm64()
-    iosSimulatorArm64()
-
-    targets.withType<org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget>().configureEach {
-        binaries.framework {
-            baseName = "ComposeApp"
-            isStatic = true
-        }
-    }
-
-    sourceSets {
-        commonMain.dependencies {
-            implementation(compose.runtime)
-            implementation(compose.foundation)
-            implementation(compose.material3)
-            implementation(compose.materialIconsExtended)
-            implementation(compose.ui)
-            implementation(libs.lifecycle.viewmodel.compose)
-            implementation(libs.kotlinx.coroutines.core)
-        }
-        commonTest.dependencies {
-            implementation(libs.kotlin.test)
-            implementation(libs.kotlinx.coroutines.test)
-        }
-        androidMain.dependencies {
-            implementation(libs.androidx.activity.compose)
-            implementation(libs.androidx.datastore.preferences)
-            implementation(libs.androidx.navigation.compose)
-            implementation(libs.hilt.android)
-        }
-    }
+    jvmToolchain(17)
 }
 
 android {
@@ -70,6 +37,20 @@ android {
 }
 
 dependencies {
-    debugImplementation(compose.uiTooling)
-    add("kspAndroid", libs.hilt.compiler)
+    implementation(platform(libs.compose.bom))
+    implementation(libs.compose.foundation)
+    implementation(libs.compose.material3)
+    implementation(libs.compose.material.icons.extended)
+    implementation(libs.compose.ui)
+    implementation(libs.compose.ui.tooling.preview)
+    implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.datastore.preferences)
+    implementation(libs.androidx.navigation.compose)
+    implementation(libs.hilt.android)
+    implementation(libs.lifecycle.viewmodel.compose)
+    implementation(libs.kotlinx.coroutines.core)
+    testImplementation(libs.kotlin.test)
+    testImplementation(libs.kotlinx.coroutines.test)
+    debugImplementation(libs.compose.ui.tooling)
+    ksp(libs.hilt.compiler)
 }
