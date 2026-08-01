@@ -4,7 +4,7 @@ plugins {
     alias(libs.plugins.compose.multiplatform)
     alias(libs.plugins.compose.compiler)
     alias(libs.plugins.hilt)
-    kotlin("kapt")
+    alias(libs.plugins.ksp)
 }
 
 kotlin {
@@ -48,6 +48,11 @@ android {
     namespace = "com.noscroll.app"
     compileSdk = 35
 
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
     defaultConfig {
         applicationId = "com.noscroll.app"
         minSdk = 26
@@ -65,11 +70,7 @@ android {
     }
 }
 
-kapt {
-    correctErrorTypes = true
-}
-
 dependencies {
     debugImplementation(compose.uiTooling)
-    add("kaptAndroid", libs.hilt.compiler)
+    add("kspAndroid", libs.hilt.compiler)
 }

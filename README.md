@@ -18,6 +18,8 @@ Make intentional phone use easier without asking people to abandon the apps they
 - Premium feature placeholders
 - No Accessibility Service or blocking engine yet
 
+Platform-specific API and store-policy decisions are tracked in [`docs/platform-policy.md`](docs/platform-policy.md). That review is required before adding Android Accessibility Service or Apple Screen Time integrations.
+
 ## Architecture
 
 `commonMain` owns models, repositories, view state and the shared UI. Platform source sets own platform entry points and integrations. Future NoScroll+ blocking implementations should sit behind `BlockingEngine` so Android Accessibility APIs and iOS-approved APIs do not leak into the shared domain layer.
@@ -29,7 +31,7 @@ Make intentional phone use easier without asking people to abandon the apps they
 3. Run the `composeApp` Android configuration on an emulator or device.
 4. For iOS, open `iosApp` in Xcode on macOS and run the iOS scheme.
 
-The repository does not include generated Gradle wrapper binaries. Android Studio can generate them with `gradle wrapper` when a local Gradle installation is available.
+The repository does not include generated Gradle wrapper binaries yet. CI uses the official `gradle/actions/setup-gradle` action with Gradle 8.10.2, while Android Studio can generate a local wrapper with `gradle wrapper` when a local Gradle installation is available.
 
 ## Roadmap
 
