@@ -33,19 +33,13 @@ class AndroidDataStoreRepository(context: Context) : NoScrollRepository {
             appContext.noScrollDataStore.data.collect { preferences ->
                 mutableState.value = mutableState.value.copy(
                     settings = UserSettings(
-                        darkMode = preferences[Keys.DARK_MODE] ?: true,
-                        notifications = preferences[Keys.NOTIFICATIONS] ?: true,
-                        language = "Svenska",
-                        startOnBoot = preferences[Keys.START_ON_BOOT] ?: false,
-                        focusMode = preferences[Keys.FOCUS_MODE] ?: false,
-                        premium = preferences[Keys.PREMIUM] ?: false,
-                        onboardingCompleted = preferences[Keys.ONBOARDING_COMPLETED] ?: false
+                        onboardingCompleted = preferences[Keys.ONBOARDING_COMPLETED] ?: false,
+                        blockingEnabled = preferences[Keys.BLOCKING_ENABLED] ?: true,
+                        automaticBlocking = preferences[Keys.AUTOMATIC_BLOCKING] ?: false
                     ),
                     statistics = Statistics(
                         blockedToday = preferences[Keys.BLOCKED_TODAY] ?: 0,
-                        blockedThisWeek = preferences[Keys.BLOCKED_WEEK] ?: 0,
-                        blockedThisMonth = preferences[Keys.BLOCKED_MONTH] ?: 0,
-                        minutesSaved = preferences[Keys.MINUTES_SAVED] ?: 0
+                        totalBlocked = preferences[Keys.TOTAL_BLOCKED] ?: 0
                     ),
                     appRules = mutableState.value.appRules.map { rule ->
                         rule.copy(enabled = preferences[Keys.ruleEnabled(rule.platform)] ?: true)
@@ -89,12 +83,22 @@ class AndroidDataStoreRepository(context: Context) : NoScrollRepository {
         val next = update(mutableState.value.settings)
         mutableState.value = mutableState.value.copy(settings = next)
         appContext.noScrollDataStore.edit { preferences ->
-            preferences[Keys.DARK_MODE] = next.darkMode
-            preferences[Keys.NOTIFICATIONS] = next.notifications
-            preferences[Keys.START_ON_BOOT] = next.startOnBoot
-            preferences[Keys.FOCUS_MODE] = next.focusMode
-            preferences[Keys.PREMIUM] = next.premium
             preferences[Keys.ONBOARDING_COMPLETED] = next.onboardingCompleted
+            preferences[Keys.BLOCKING_ENABLED] = next.blockingEnabled
+            preferences[Keys.AUTOMATIC_BLOCKING] = next.automaticBlocking
+        }
+    }
+
+    override suspend fun recordShortsBlocked(automatic: Boolean, minutesSaved: Int) {
+        val current = mutableState.value.statistics
+        val next = current.copy(
+            blockedToday = current.blockedToday + 1,
+            totalBlocked = current.totalBlocked + 1
+        )
+        mutableState.value = mutableState.value.copy(statistics = next)
+        appContext.noScrollDataStore.edit { preferences ->
+            preferences[Keys.BLOCKED_TODAY] = next.blockedToday
+            preferences[Keys.TOTAL_BLOCKED] = next.totalBlocked
         }
     }
 
@@ -102,30 +106,21 @@ class AndroidDataStoreRepository(context: Context) : NoScrollRepository {
         val current = mutableState.value.statistics
         val next = current.copy(
             blockedToday = current.blockedToday + 1,
-            blockedThisWeek = current.blockedThisWeek + 1,
-            blockedThisMonth = current.blockedThisMonth + 1,
-            minutesSaved = current.minutesSaved + minutesSaved
+            totalBlocked = current.totalBlocked + 1
         )
         mutableState.value = mutableState.value.copy(statistics = next)
         appContext.noScrollDataStore.edit { preferences ->
             preferences[Keys.BLOCKED_TODAY] = next.blockedToday
-            preferences[Keys.BLOCKED_WEEK] = next.blockedThisWeek
-            preferences[Keys.BLOCKED_MONTH] = next.blockedThisMonth
-            preferences[Keys.MINUTES_SAVED] = next.minutesSaved
+            preferences[Keys.TOTAL_BLOCKED] = next.totalBlocked
         }
     }
 
     private object Keys {
-        val DARK_MODE = booleanPreferencesKey("dark_mode")
-        val NOTIFICATIONS = booleanPreferencesKey("notifications")
-        val START_ON_BOOT = booleanPreferencesKey("start_on_boot")
-        val FOCUS_MODE = booleanPreferencesKey("focus_mode")
-        val PREMIUM = booleanPreferencesKey("premium")
         val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
+        val BLOCKING_ENABLED = booleanPreferencesKey("blocking_enabled")
+        val AUTOMATIC_BLOCKING = booleanPreferencesKey("automatic_blocking")
         val BLOCKED_TODAY = intPreferencesKey("blocked_today")
-        val BLOCKED_WEEK = intPreferencesKey("blocked_week")
-        val BLOCKED_MONTH = intPreferencesKey("blocked_month")
-        val MINUTES_SAVED = intPreferencesKey("minutes_saved")
+        val TOTAL_BLOCKED = intPreferencesKey("total_blocked")
 
         fun ruleEnabled(platform: FocusPlatform) = booleanPreferencesKey("rule_${platform.name.lowercase()}")
     }

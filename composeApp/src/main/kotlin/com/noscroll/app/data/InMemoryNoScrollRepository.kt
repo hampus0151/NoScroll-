@@ -46,6 +46,21 @@ class InMemoryNoScrollRepository : NoScrollRepository {
         mutableState.value = mutableState.value.copy(settings = update(mutableState.value.settings))
     }
 
+    override suspend fun recordShortsBlocked(automatic: Boolean, minutesSaved: Int) {
+        val current = mutableState.value.statistics
+        mutableState.value = mutableState.value.copy(
+            statistics = current.copy(
+                blockedToday = current.blockedToday + 1,
+                blockedThisWeek = current.blockedThisWeek + 1,
+                blockedThisMonth = current.blockedThisMonth + 1,
+                totalBlocked = current.totalBlocked + 1,
+                automaticExits = current.automaticExits + if (automatic) 1 else 0,
+                manualExits = current.manualExits + if (automatic) 0 else 1,
+                minutesSaved = current.minutesSaved + minutesSaved
+            )
+        )
+    }
+
     override suspend fun recordBlocked(platform: FocusPlatform, minutesSaved: Int) {
         mutableState.value = mutableState.value.copy(
             statistics = mutableState.value.statistics.copy(

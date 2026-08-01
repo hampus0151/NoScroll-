@@ -37,6 +37,10 @@ class NoScrollViewModel(
         repository.updateSettings(update)
     }
 
+    fun recordShortsBlocked(automatic: Boolean, minutesSaved: Int = 1) = scope.launch {
+        repository.recordShortsBlocked(automatic, minutesSaved)
+    }
+
     fun recordBlocked(platform: FocusPlatform, minutesSaved: Int) = scope.launch {
         repository.recordBlocked(platform, minutesSaved)
     }

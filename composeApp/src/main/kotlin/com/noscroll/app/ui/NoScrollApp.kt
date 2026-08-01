@@ -41,6 +41,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -142,6 +143,7 @@ fun NoScrollPlusApp(
                     when (state.selectedTab) {
                         AppTab.Home -> HomeScreen(
                             state.appRules,
+                            state.settings,
                             state.accessibilityServiceEnabled,
                             state.youtubeOpen,
                             state.youtubeShortsDetected,
@@ -150,7 +152,7 @@ fun NoScrollPlusApp(
                             Modifier.padding(padding)
                         )
                         AppTab.Statistics -> StatisticsScreen(state.statistics, Modifier.padding(padding))
-                        AppTab.Settings -> SettingsScreen(state.settings, viewModel, Modifier.padding(padding))
+                        AppTab.Settings -> SettingsScreen(state.appRules, state.settings, state.accessibilityServiceEnabled, viewModel, onOpenAccessibilitySettings, Modifier.padding(padding))
                     }
                 }
             } else {
@@ -158,7 +160,7 @@ fun NoScrollPlusApp(
             }
 
             AnimatedVisibility(
-                visible = state.youtubeShortsDetected && !overlayDismissed,
+                visible = state.youtubeShortsDetected && state.settings.showOverlay && !overlayDismissed,
                 enter = fadeIn(),
                 exit = fadeOut()
             ) {
@@ -206,6 +208,12 @@ private fun ShortsBlockingOverlay(onLeaveShorts: () -> Unit, onClose: () -> Unit
                 ) {
                     Text("Leave Shorts", color = Color(0xFF002019), fontWeight = FontWeight.SemiBold)
                 }
+                OutlinedButton(
+                    onClick = {},
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Allow Shorts for 5 minutes", color = Color.White)
+                }
                 TextButton(onClick = onClose) {
                     Text("Close overlay", color = Color(0xFFB7C0C8))
                 }
@@ -217,6 +225,7 @@ private fun ShortsBlockingOverlay(onLeaveShorts: () -> Unit, onClose: () -> Unit
 @Composable
 private fun HomeScreen(
     rules: List<AppRule>,
+    settings: UserSettings,
     accessibilityServiceEnabled: Boolean,
     youtubeOpen: Boolean,
     youtubeShortsDetected: Boolean,
@@ -224,8 +233,6 @@ private fun HomeScreen(
     onOpenAccessibilitySettings: () -> Unit,
     modifier: Modifier
 ) {
-    var blockingEnabled by remember { mutableStateOf(true) }
-
     LazyColumn(
         modifier = modifier.fillMaxSize().padding(horizontal = 20.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
@@ -259,7 +266,9 @@ private fun HomeScreen(
                 }
             }
             Spacer(Modifier.height(18.dp))
-            BlockingControl(blockingEnabled) { blockingEnabled = it }
+            BlockingControl(settings.blockingEnabled) { enabled ->
+                viewModel.updateSettings { it.copy(blockingEnabled = enabled) }
+            }
             Spacer(Modifier.height(2.dp))
             PermissionStatusCard(
                 accessibilityServiceEnabled,
@@ -267,12 +276,8 @@ private fun HomeScreen(
                 youtubeShortsDetected,
                 onOpenAccessibilitySettings
             )
-            StatisticsPreviewCard()
             Spacer(Modifier.height(6.dp))
-            SectionHeading("Skyddade flöden", "Välj vilka kortvideo-flöden du vill pausa.")
-        }
-        items(rules, key = { it.platform.name }) { rule ->
-            AppRuleCard(rule) { enabled -> viewModel.setRuleEnabled(rule.platform, enabled) }
+            SectionHeading("Appar", "Välj vilka flöden NoScroll+ ska skydda.")
         }
         item { Spacer(Modifier.height(18.dp)) }
     }
@@ -479,26 +484,8 @@ private fun StatisticsScreen(statistics: Statistics, modifier: Modifier) {
             Text("Statistik", color = TextPrimary, fontSize = 32.sp, fontWeight = FontWeight.Bold)
             Text("En lugnare bild av din uppmärksamhet.", color = TextMuted)
             Spacer(Modifier.height(20.dp))
-            StatCard("Blockerade idag", statistics.blockedToday.toString(), "+18 % mot förra veckan")
-            StatCard("Blockerade den här veckan", statistics.blockedThisWeek.toString(), "Flest på kvällstid")
-            StatCard("Blockerade den här månaden", statistics.blockedThisMonth.toString(), "Dummy-data i första versionen")
-            StatCard("Sparad tid", "${statistics.minutesSaved} min", "Tid som kunde användas på annat")
-            Spacer(Modifier.height(4.dp))
-            Card(colors = CardDefaults.cardColors(containerColor = SurfaceStrong), shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(20.dp)) {
-                    Text("Veckans mönster", color = TextPrimary, fontWeight = FontWeight.SemiBold)
-                    Spacer(Modifier.height(24.dp))
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
-                        listOf(42, 62, 34, 78, 58, 88, 64).forEachIndexed { index, height ->
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Box(Modifier.width(22.dp).height(height.dp).clip(RoundedCornerShape(8.dp)).background(if (index == 5) Accent else Color(0xFF414858)))
-                                Spacer(Modifier.height(6.dp))
-                                Text(listOf("M", "T", "O", "T", "F", "L", "S")[index], color = TextMuted, fontSize = 12.sp)
-                            }
-                        }
-                    }
-                }
-            }
+            StatCard("Shorts blockerade idag", statistics.blockedToday.toString(), "Aktuell dag")
+            StatCard("Totalt blockerade", statistics.totalBlocked.toString(), "Sedan NoScroll+ började användas")
         }
     }
 }
@@ -519,27 +506,27 @@ private fun StatCard(title: String, value: String, detail: String) {
 }
 
 @Composable
-private fun SettingsScreen(settings: UserSettings, viewModel: NoScrollViewModel, modifier: Modifier) {
+private fun SettingsScreen(
+    rules: List<AppRule>,
+    settings: UserSettings,
+    accessibilityServiceEnabled: Boolean,
+    viewModel: NoScrollViewModel,
+    onOpenAccessibilitySettings: () -> Unit,
+    modifier: Modifier
+) {
     LazyColumn(modifier.fillMaxSize().padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item {
             Spacer(Modifier.height(22.dp))
             Text("Inställningar", color = TextPrimary, fontSize = 32.sp, fontWeight = FontWeight.Bold)
             Text("Bestäm hur NoScroll+ ska fungera för dig.", color = TextMuted)
             Spacer(Modifier.height(20.dp))
-            SettingToggle("Mörkt tema", "Ett lugnt gränssnitt för fokus.", Icons.Outlined.DarkMode, settings.darkMode) { value -> viewModel.updateSettings { it.copy(darkMode = value) } }
-            SettingToggle("Notiser", "Påminnelser om dina fokuslägen.", Icons.Outlined.Notifications, settings.notifications) { value -> viewModel.updateSettings { it.copy(notifications = value) } }
-            SettingToggle("Starta vid uppstart", "Aktivera NoScroll när telefonen startar.", Icons.Outlined.CheckCircle, settings.startOnBoot) { value -> viewModel.updateSettings { it.copy(startOnBoot = value) } }
-            SettingToggle("Fokusläge", "Tillfälligt lugnare regler för ett valt pass.", Icons.Outlined.Shield, settings.focusMode) { value -> viewModel.updateSettings { it.copy(focusMode = value) } }
-            Spacer(Modifier.height(18.dp))
-            SectionHeading("Mer", "Funktioner som byggs ut stegvis.")
-            SettingLink("Språk", settings.language)
-            SettingLink("Premium", if (settings.premium) "Aktivt" else "Kommer snart") { viewModel.openScreen(SecondaryScreen.Premium) }
-            SettingLink("Fokusläge", if (settings.focusMode) "Aktivt" else "Konfigurera") { viewModel.openScreen(SecondaryScreen.FocusMode) }
-            SettingLink("Om NoScroll+", "Version 0.1.0") { viewModel.openScreen(SecondaryScreen.About) }
-            SettingLink("Introduktion", "Visa igen") { viewModel.openScreen(SecondaryScreen.Onboarding) }
-            SettingLink("Integritet", "Läs mer")
-            SettingLink("Villkor", "Läs mer")
-            SettingLink("Feedback", "Berätta vad du tycker")
+            SettingToggle("Aktivera blockering", "Styr Shorts-skydd och entry-point-blockers.", Icons.Outlined.Shield, settings.blockingEnabled) { value -> viewModel.updateSettings { it.copy(blockingEnabled = value) } }
+            SettingToggle("Automatic blocking", "Lämna Shorts automatiskt efter en kort bekräftelse.", Icons.Outlined.PlayArrow, settings.automaticBlocking) { value -> viewModel.updateSettings { it.copy(automaticBlocking = value) } }
+            SettingLink("Accessibility status", if (accessibilityServiceEnabled) "Ready" else "Inte aktiverad", onOpenAccessibilitySettings)
+            SectionHeading("Appar", "Välj vilka flöden som ska skyddas.")
+            rules.forEach { rule ->
+                AppRuleCard(rule) { enabled -> viewModel.setRuleEnabled(rule.platform, enabled) }
+            }
         }
     }
 }
