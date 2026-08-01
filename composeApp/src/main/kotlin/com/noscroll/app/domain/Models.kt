@@ -30,7 +30,8 @@ data class UserSettings(
     val language: String = "Svenska",
     val startOnBoot: Boolean = false,
     val focusMode: Boolean = false,
-    val premium: Boolean = false
+    val premium: Boolean = false,
+    val onboardingCompleted: Boolean = false
 )
 
 data class NoScrollState(

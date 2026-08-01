@@ -38,7 +38,8 @@ class AndroidDataStoreRepository(context: Context) : NoScrollRepository {
                         language = "Svenska",
                         startOnBoot = preferences[Keys.START_ON_BOOT] ?: false,
                         focusMode = preferences[Keys.FOCUS_MODE] ?: false,
-                        premium = preferences[Keys.PREMIUM] ?: false
+                        premium = preferences[Keys.PREMIUM] ?: false,
+                        onboardingCompleted = preferences[Keys.ONBOARDING_COMPLETED] ?: false
                     ),
                     statistics = Statistics(
                         blockedToday = preferences[Keys.BLOCKED_TODAY] ?: 0,
@@ -82,6 +83,7 @@ class AndroidDataStoreRepository(context: Context) : NoScrollRepository {
             preferences[Keys.START_ON_BOOT] = next.startOnBoot
             preferences[Keys.FOCUS_MODE] = next.focusMode
             preferences[Keys.PREMIUM] = next.premium
+            preferences[Keys.ONBOARDING_COMPLETED] = next.onboardingCompleted
         }
     }
 
@@ -108,6 +110,7 @@ class AndroidDataStoreRepository(context: Context) : NoScrollRepository {
         val START_ON_BOOT = booleanPreferencesKey("start_on_boot")
         val FOCUS_MODE = booleanPreferencesKey("focus_mode")
         val PREMIUM = booleanPreferencesKey("premium")
+        val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
         val BLOCKED_TODAY = intPreferencesKey("blocked_today")
         val BLOCKED_WEEK = intPreferencesKey("blocked_week")
         val BLOCKED_MONTH = intPreferencesKey("blocked_month")
