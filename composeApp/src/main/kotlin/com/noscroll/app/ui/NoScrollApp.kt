@@ -129,7 +129,15 @@ fun NoScrollPlusApp(
                 }
             ) { padding ->
                 when (state.selectedTab) {
-                    AppTab.Home -> HomeScreen(state.appRules, state.accessibilityServiceEnabled, viewModel, onOpenAccessibilitySettings, Modifier.padding(padding))
+                    AppTab.Home -> HomeScreen(
+                        state.appRules,
+                        state.accessibilityServiceEnabled,
+                        state.youtubeOpen,
+                        state.youtubeShortsDetected,
+                        viewModel,
+                        onOpenAccessibilitySettings,
+                        Modifier.padding(padding)
+                    )
                     AppTab.Statistics -> StatisticsScreen(state.statistics, Modifier.padding(padding))
                     AppTab.Settings -> SettingsScreen(state.settings, viewModel, Modifier.padding(padding))
                 }
@@ -144,6 +152,8 @@ fun NoScrollPlusApp(
 private fun HomeScreen(
     rules: List<AppRule>,
     accessibilityServiceEnabled: Boolean,
+    youtubeOpen: Boolean,
+    youtubeShortsDetected: Boolean,
     viewModel: NoScrollViewModel,
     onOpenAccessibilitySettings: () -> Unit,
     modifier: Modifier
@@ -185,7 +195,12 @@ private fun HomeScreen(
             Spacer(Modifier.height(18.dp))
             BlockingControl(blockingEnabled) { blockingEnabled = it }
             Spacer(Modifier.height(2.dp))
-            PermissionStatusCard(accessibilityServiceEnabled, onOpenAccessibilitySettings)
+            PermissionStatusCard(
+                accessibilityServiceEnabled,
+                youtubeOpen,
+                youtubeShortsDetected,
+                onOpenAccessibilitySettings
+            )
             StatisticsPreviewCard()
             Spacer(Modifier.height(6.dp))
             SectionHeading("Skyddade flöden", "Välj vilka kortvideo-flöden du vill pausa.")
@@ -258,7 +273,12 @@ private fun BlockingControl(enabled: Boolean, onEnabledChange: (Boolean) -> Unit
 }
 
 @Composable
-private fun PermissionStatusCard(enabled: Boolean, onOpenAccessibilitySettings: () -> Unit) {
+private fun PermissionStatusCard(
+    enabled: Boolean,
+    youtubeOpen: Boolean,
+    youtubeShortsDetected: Boolean,
+    onOpenAccessibilitySettings: () -> Unit
+) {
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         shape = RoundedCornerShape(22.dp),
@@ -277,6 +297,8 @@ private fun PermissionStatusCard(enabled: Boolean, onOpenAccessibilitySettings: 
             Spacer(Modifier.height(16.dp))
                 StatusRow("Behörighet", if (enabled) "Tillgänglighetstjänsten är aktiv" else "Krävs för att skydda appar", enabled)
                 StatusRow("Blockering", if (enabled) "Redo när blockeringslogik läggs till" else "Inaktiv tills tjänsten aktiveras", enabled)
+                StatusRow("YouTube", if (youtubeOpen) "Öppen" else "Inte öppen", youtubeOpen)
+                StatusRow("Shorts", if (youtubeShortsDetected) "Detekterat" else "Inte detekterat", youtubeShortsDetected)
                 Spacer(Modifier.height(14.dp))
                 Button(
                     onClick = onOpenAccessibilitySettings,

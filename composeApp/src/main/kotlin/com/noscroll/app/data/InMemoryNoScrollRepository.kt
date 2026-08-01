@@ -27,6 +27,13 @@ class InMemoryNoScrollRepository : NoScrollRepository {
         mutableState.value = mutableState.value.copy(accessibilityServiceEnabled = enabled)
     }
 
+    override suspend fun setYouTubeDetectionState(youtubeOpen: Boolean, shortsDetected: Boolean) {
+        mutableState.value = mutableState.value.copy(
+            youtubeOpen = youtubeOpen,
+            youtubeShortsDetected = shortsDetected
+        )
+    }
+
     override suspend fun setRuleEnabled(platform: FocusPlatform, enabled: Boolean) {
         mutableState.value = mutableState.value.copy(
             appRules = mutableState.value.appRules.map { rule ->
