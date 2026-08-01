@@ -11,6 +11,7 @@ import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityNodeInfo
+import android.os.SystemClock
 import com.noscroll.app.data.AndroidDataStoreRepository
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -27,7 +28,10 @@ class AccessibilityBlockingService : AccessibilityService() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private lateinit var windowManager: WindowManager
     private val entryPointBlockers = mutableMapOf<String, View>()
+    private val entryPointBounds = mutableMapOf<String, Rect>()
     private var loggedMissingTarget = false
+    private var loggedFallbackTarget = false
+    private var lastYoutubeScanUptime = 0L
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -48,10 +52,15 @@ class AccessibilityBlockingService : AccessibilityService() {
         val packageName = event?.packageName?.toString()
         if (packageName != YOUTUBE_PACKAGE) {
             removeEntryPointBlockers()
+            lastYoutubeScanUptime = 0L
             return
         }
 
-        updateShortsEntryPointBlockers()
+        val now = SystemClock.uptimeMillis()
+        if (now - lastYoutubeScanUptime >= SCAN_INTERVAL_MS) {
+            lastYoutubeScanUptime = now
+            updateShortsEntryPointBlockers()
+        }
         val youtubeOpen = packageName == YOUTUBE_PACKAGE
         val shortsDetected = youtubeOpen && event.isYouTubeShortsEvent()
         serviceScope.launch {
@@ -67,10 +76,12 @@ class AccessibilityBlockingService : AccessibilityService() {
             return
         }
         val matches = linkedMapOf<String, Rect>()
+        var stableTargetFound = false
 
         STABLE_ENTRY_POINT_IDS.forEach { id ->
-            root.findAccessibilityNodeInfosByViewId("$YOUTUBE_PACKAGE:id/$id")
-                .forEach { node -> matches[id] = nodeBounds(node) }
+            val nodes = root.findAccessibilityNodeInfosByViewId("$YOUTUBE_PACKAGE:id/$id")
+            if (nodes.isNotEmpty()) stableTargetFound = true
+            nodes.forEach { node -> matches[id] = nodeBounds(node) }
         }
 
         if (matches.isEmpty()) {
@@ -82,11 +93,18 @@ class AccessibilityBlockingService : AccessibilityService() {
                 Log.d(TAG, "No Shorts entry point found in current YouTube hierarchy")
                 loggedMissingTarget = true
             }
+            loggedFallbackTarget = false
             removeEntryPointBlockers()
             return
         }
 
         loggedMissingTarget = false
+        if (!stableTargetFound && !loggedFallbackTarget) {
+            Log.d(TAG, "Stable Shorts entry point missing; using fallback hierarchy match")
+            loggedFallbackTarget = true
+        } else if (stableTargetFound) {
+            loggedFallbackTarget = false
+        }
         entryPointBlockers.keys.filter { it !in matches }.toList().forEach(::removeEntryPointBlocker)
         matches.forEach { (key, bounds) ->
             if (!bounds.isEmpty) addOrUpdateEntryPointBlocker(key, bounds)
@@ -125,6 +143,7 @@ class AccessibilityBlockingService : AccessibilityService() {
                 importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
             }
         }
+        if (blocker.parent != null && entryPointBounds[key] == bounds) return
         val params = (blocker.layoutParams as? WindowManager.LayoutParams)
             ?: WindowManager.LayoutParams().apply {
                 type = WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY
@@ -137,9 +156,11 @@ class AccessibilityBlockingService : AccessibilityService() {
         params.width = bounds.width()
         params.height = bounds.height()
         if (blocker.parent == null) windowManager.addView(blocker, params) else windowManager.updateViewLayout(blocker, params)
+        entryPointBounds[key] = Rect(bounds)
     }
 
     private fun removeEntryPointBlockers() {
+        if (!::windowManager.isInitialized) return
         entryPointBlockers.keys.toList().forEach(::removeEntryPointBlocker)
     }
 
@@ -147,6 +168,7 @@ class AccessibilityBlockingService : AccessibilityService() {
         entryPointBlockers.remove(key)?.let { blocker ->
             if (blocker.parent != null) windowManager.removeView(blocker)
         }
+        entryPointBounds.remove(key)
     }
 
     private fun AccessibilityEvent.isYouTubeShortsEvent(): Boolean {
@@ -172,6 +194,7 @@ class AccessibilityBlockingService : AccessibilityService() {
         const val TAG = "NoScrollAccessibility"
         const val MAX_FALLBACK_NODES = 160
         const val MAX_FALLBACK_DEPTH = 12
+        const val SCAN_INTERVAL_MS = 120L
         val STABLE_ENTRY_POINT_IDS = setOf("button_shorts_container")
         val SHORTS_VIEW_ID_MARKERS = setOf(
             "reel_player_",
