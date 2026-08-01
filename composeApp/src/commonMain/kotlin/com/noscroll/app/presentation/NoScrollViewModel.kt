@@ -5,6 +5,7 @@ import com.noscroll.app.domain.AppTab
 import com.noscroll.app.domain.FocusPlatform
 import com.noscroll.app.domain.NoScrollRepository
 import com.noscroll.app.domain.NoScrollState
+import com.noscroll.app.domain.SecondaryScreen
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -20,11 +21,19 @@ class NoScrollViewModel(
 
     fun selectTab(tab: AppTab) = scope.launch { repository.setTab(tab) }
 
+    fun openScreen(screen: SecondaryScreen) = scope.launch { repository.setSecondaryScreen(screen) }
+
+    fun closeScreen() = openScreen(SecondaryScreen.None)
+
     fun setRuleEnabled(platform: FocusPlatform, enabled: Boolean) = scope.launch {
         repository.setRuleEnabled(platform, enabled)
     }
 
     fun updateSettings(update: (com.noscroll.app.domain.UserSettings) -> com.noscroll.app.domain.UserSettings) = scope.launch {
         repository.updateSettings(update)
+    }
+
+    fun recordBlocked(platform: FocusPlatform, minutesSaved: Int) = scope.launch {
+        repository.recordBlocked(platform, minutesSaved)
     }
 }

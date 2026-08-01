@@ -18,13 +18,17 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.BarChart
+import androidx.compose.material.icons.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.outlined.Stars
+import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -54,6 +58,7 @@ import com.noscroll.app.domain.AppRule
 import com.noscroll.app.domain.FocusPlatform
 import com.noscroll.app.domain.Statistics
 import com.noscroll.app.domain.UserSettings
+import com.noscroll.app.domain.SecondaryScreen
 import com.noscroll.app.presentation.NoScrollViewModel
 
 private val Background = Color(0xFF0B0D12)
@@ -64,30 +69,34 @@ private val TextMuted = Color(0xFF9DA5B4)
 private val Accent = Color(0xFFA78BFA)
 
 @Composable
-fun NoScrollApp(viewModel: NoScrollViewModel = remember { NoScrollViewModel() }) {
+fun NoScrollPlusApp(viewModel: NoScrollViewModel = remember { NoScrollViewModel() }) {
     val state by viewModel.state.collectAsState()
 
     MaterialTheme {
-        Scaffold(
-            containerColor = Background,
-            bottomBar = {
-                NavigationBar(containerColor = Surface) {
-                    AppTab.entries.forEach { tab ->
-                        NavigationBarItem(
-                            selected = state.selectedTab == tab,
-                            onClick = { viewModel.selectTab(tab) },
-                            icon = { Icon(tab.icon(), contentDescription = tab.label) },
-                            label = { Text(tab.label) }
-                        )
+        if (state.secondaryScreen == SecondaryScreen.None) {
+            Scaffold(
+                containerColor = Background,
+                bottomBar = {
+                    NavigationBar(containerColor = Surface) {
+                        AppTab.entries.forEach { tab ->
+                            NavigationBarItem(
+                                selected = state.selectedTab == tab,
+                                onClick = { viewModel.selectTab(tab) },
+                                icon = { Icon(tab.icon(), contentDescription = tab.label) },
+                                label = { Text(tab.label) }
+                            )
+                        }
                     }
                 }
+            ) { padding ->
+                when (state.selectedTab) {
+                    AppTab.Home -> HomeScreen(state.appRules, viewModel, Modifier.padding(padding))
+                    AppTab.Statistics -> StatisticsScreen(state.statistics, Modifier.padding(padding))
+                    AppTab.Settings -> SettingsScreen(state.settings, viewModel, Modifier.padding(padding))
+                }
             }
-        ) { padding ->
-            when (state.selectedTab) {
-                AppTab.Home -> HomeScreen(state.appRules, viewModel, Modifier.padding(padding))
-                AppTab.Statistics -> StatisticsScreen(state.statistics, Modifier.padding(padding))
-                AppTab.Settings -> SettingsScreen(state.settings, viewModel, Modifier.padding(padding))
-            }
+        } else {
+            SecondaryScreenView(state.secondaryScreen, state.settings, viewModel)
         }
     }
 }
@@ -100,10 +109,10 @@ private fun HomeScreen(rules: List<AppRule>, viewModel: NoScrollViewModel, modif
     ) {
         item {
             Spacer(Modifier.height(22.dp))
-            Text("NoScroll", color = TextPrimary, fontSize = 32.sp, fontWeight = FontWeight.Bold)
+            Text("NoScroll+", color = TextPrimary, fontSize = 32.sp, fontWeight = FontWeight.Bold)
             Text("Gör plats för det som betyder något.", color = TextMuted, fontSize = 16.sp)
             Spacer(Modifier.height(18.dp))
-            PremiumBanner()
+            PremiumBanner(viewModel)
             Spacer(Modifier.height(22.dp))
             SectionHeading("Skyddade flöden", "Välj vilka kortvideo-flöden du vill pausa.")
         }
@@ -115,7 +124,7 @@ private fun HomeScreen(rules: List<AppRule>, viewModel: NoScrollViewModel, modif
 }
 
 @Composable
-private fun PremiumBanner() {
+private fun PremiumBanner(viewModel: NoScrollViewModel) {
     Card(
         colors = CardDefaults.cardColors(containerColor = Color(0xFF211B38)),
         shape = RoundedCornerShape(22.dp),
@@ -125,10 +134,10 @@ private fun PremiumBanner() {
             Icon(Icons.Outlined.Stars, null, tint = Accent, modifier = Modifier.size(30.dp))
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
-                Text("NoScroll Premium", color = TextPrimary, fontWeight = FontWeight.SemiBold)
+                Text("NoScroll+ Premium", color = TextPrimary, fontWeight = FontWeight.SemiBold)
                 Text("Schemaläggning och fokuslägen kommer snart.", color = TextMuted, fontSize = 13.sp)
             }
-            TextButton(onClick = {}) { Text("Utforska", color = Accent) }
+            TextButton(onClick = { viewModel.openScreen(SecondaryScreen.Premium) }) { Text("Utforska", color = Accent) }
         }
     }
 }
@@ -207,7 +216,7 @@ private fun SettingsScreen(settings: UserSettings, viewModel: NoScrollViewModel,
         item {
             Spacer(Modifier.height(22.dp))
             Text("Inställningar", color = TextPrimary, fontSize = 32.sp, fontWeight = FontWeight.Bold)
-            Text("Bestäm hur NoScroll ska fungera för dig.", color = TextMuted)
+            Text("Bestäm hur NoScroll+ ska fungera för dig.", color = TextMuted)
             Spacer(Modifier.height(20.dp))
             SettingToggle("Mörkt tema", "Ett lugnt gränssnitt för fokus.", Icons.Outlined.DarkMode, settings.darkMode) { value -> viewModel.updateSettings { it.copy(darkMode = value) } }
             SettingToggle("Notiser", "Påminnelser om dina fokuslägen.", Icons.Outlined.Notifications, settings.notifications) { value -> viewModel.updateSettings { it.copy(notifications = value) } }
@@ -216,8 +225,10 @@ private fun SettingsScreen(settings: UserSettings, viewModel: NoScrollViewModel,
             Spacer(Modifier.height(18.dp))
             SectionHeading("Mer", "Funktioner som byggs ut stegvis.")
             SettingLink("Språk", settings.language)
-            SettingLink("Premium", if (settings.premium) "Aktivt" else "Kommer snart")
-            SettingLink("Om NoScroll", "Version 0.1.0")
+            SettingLink("Premium", if (settings.premium) "Aktivt" else "Kommer snart") { viewModel.openScreen(SecondaryScreen.Premium) }
+            SettingLink("Fokusläge", if (settings.focusMode) "Aktivt" else "Konfigurera") { viewModel.openScreen(SecondaryScreen.FocusMode) }
+            SettingLink("Om NoScroll+", "Version 0.1.0") { viewModel.openScreen(SecondaryScreen.About) }
+            SettingLink("Introduktion", "Visa igen") { viewModel.openScreen(SecondaryScreen.Onboarding) }
             SettingLink("Integritet", "Läs mer")
             SettingLink("Villkor", "Läs mer")
             SettingLink("Feedback", "Berätta vad du tycker")
@@ -238,11 +249,11 @@ private fun SettingToggle(title: String, detail: String, icon: androidx.compose.
 }
 
 @Composable
-private fun SettingLink(title: String, value: String) {
+private fun SettingLink(title: String, value: String, onClick: () -> Unit = {}) {
     Card(colors = CardDefaults.cardColors(containerColor = Surface), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) {
         Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text(title, color = TextPrimary, fontWeight = FontWeight.SemiBold)
-            Text(value, color = TextMuted, fontSize = 13.sp)
+            TextButton(onClick = onClick) { Text(value, color = TextMuted, fontSize = 13.sp) }
         }
     }
 }

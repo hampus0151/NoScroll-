@@ -1,6 +1,6 @@
-# NoScroll
+# NoScroll+
 
-NoScroll is a Kotlin Multiplatform app foundation for reducing addictive short-video feeds and infinite scrolling while keeping the rest of each platform useful.
+NoScroll+ is a Kotlin Multiplatform app foundation for reducing addictive short-video feeds and infinite scrolling while keeping the rest of each platform useful.
 
 ## Vision
 
@@ -20,7 +20,7 @@ Make intentional phone use easier without asking people to abandon the apps they
 
 ## Architecture
 
-`commonMain` owns models, repositories, view state and the shared UI. Platform source sets own platform entry points and integrations. Future blocking implementations should sit behind `BlockingEngine` so Android Accessibility APIs and iOS-approved APIs do not leak into the shared domain layer.
+`commonMain` owns models, repositories, view state and the shared UI. Platform source sets own platform entry points and integrations. Future NoScroll+ blocking implementations should sit behind `BlockingEngine` so Android Accessibility APIs and iOS-approved APIs do not leak into the shared domain layer.
 
 ## Run
 

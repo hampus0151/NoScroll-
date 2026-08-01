@@ -1,4 +1,4 @@
-name: Build NoScroll
+name: Build NoScroll+
 
 on:
   push:

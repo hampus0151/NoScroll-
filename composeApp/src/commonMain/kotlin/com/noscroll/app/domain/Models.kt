@@ -2,7 +2,7 @@ package com.noscroll.app.domain
 
 import kotlinx.coroutines.flow.StateFlow
 
-/** Platforms that NoScroll will support through platform-specific integrations. */
+/** Platforms that NoScroll+ will support through platform-specific integrations. */
 enum class FocusPlatform(val label: String, val accent: Long) {
     YouTube("YouTube Shorts", 0xFFFF6B6B),
     Instagram("Instagram Reels", 0xFFE879F9),
@@ -35,6 +35,7 @@ data class UserSettings(
 
 data class NoScrollState(
     val selectedTab: AppTab = AppTab.Home,
+    val secondaryScreen: SecondaryScreen = SecondaryScreen.None,
     val appRules: List<AppRule> = FocusPlatform.entries.map {
         AppRule(it, description = when (it) {
             FocusPlatform.YouTube -> "Korta videor i Shorts-flödet"
@@ -54,6 +55,14 @@ enum class AppTab(val label: String) {
     Settings("Inställningar")
 }
 
+enum class SecondaryScreen {
+    None,
+    About,
+    Premium,
+    FocusMode,
+    Onboarding
+}
+
 interface BlockingEngine {
     val isAvailable: Boolean
     suspend fun setRuleEnabled(platform: FocusPlatform, enabled: Boolean)
@@ -62,6 +71,8 @@ interface BlockingEngine {
 interface NoScrollRepository {
     val state: StateFlow<NoScrollState>
     suspend fun setTab(tab: AppTab)
+    suspend fun setSecondaryScreen(screen: SecondaryScreen)
     suspend fun setRuleEnabled(platform: FocusPlatform, enabled: Boolean)
     suspend fun updateSettings(update: (UserSettings) -> UserSettings)
+    suspend fun recordBlocked(platform: FocusPlatform, minutesSaved: Int)
 }

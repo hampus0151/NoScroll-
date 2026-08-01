@@ -16,5 +16,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "NoScroll"
+rootProject.name = "NoScroll+"
 include(":composeApp")

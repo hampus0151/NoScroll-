@@ -1,13 +1,14 @@
-# NoScroll TODO
+# NoScroll+ TODO
 
 ## Version 1
 
 - [x] Home UI
 - [x] Settings UI
 - [x] Statistics placeholder
-- [ ] DataStore persistence
+- [x] Android DataStore persistence for settings, rules and statistics
+- [x] About, Premium, Focus Mode and Onboarding screens
 - [ ] Notification preferences
-- [ ] First-run onboarding
+- [ ] First-run onboarding state
 
 ## Version 2
 

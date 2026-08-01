@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application
-        android:name=".NoScrollApplication"
+        android:name=".NoScrollPlusApplication"
         android:allowBackup="true"
-        android:label="NoScroll"
+        android:label="@string/app_name"
         android:supportsRtl="true"
-        android:theme="@style/Theme.NoScroll">
+        android:theme="@style/Theme.NoScrollPlus">
         <activity
             android:name=".MainActivity"
             android:exported="true">
